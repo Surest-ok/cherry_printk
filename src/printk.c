@@ -22,11 +22,7 @@ extern uint64_t gtimer_get_counter(void);
 extern uint64_t gtimer_get_frequency(void);
 extern void uart_puts(const char *str);
 
-/* FreeRTOS Scheduler & Task queries */
-#define taskSCHEDULER_RUNNING 2
-extern int xTaskGetSchedulerState(void);
-extern char *pcTaskGetName(void *xTaskToQuery);
-extern void *xTaskGetCurrentTaskHandle(void);
+/* CPU Interrupt Nesting */
 extern uint64_t ulPortInterruptNestings[];
 
 static spinlock_t s_console_lock = SPIN_LOCK_UNLOCKED;
@@ -121,15 +117,16 @@ int vprintk(const char *fmt, va_list args)
     uint32_t cpu = smp_processor_id();
     rec.cpu_id = cpu;
 
-    if (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING) {
+    if (!kal_scheduler_is_running()) {
         strncpy(rec.thread_name, "swapper", sizeof(rec.thread_name) - 1);
         rec.thread_id = 0;
     } else if (ulPortInterruptNestings[cpu] > 0) {
         strncpy(rec.thread_name, "irq", sizeof(rec.thread_name) - 1);
         rec.thread_id = (uint32_t)ulPortInterruptNestings[cpu];
     } else {
-        const char *tname = pcTaskGetName(NULL);
-        void *thandle = xTaskGetCurrentTaskHandle();
+        struct task_struct *ts = kthread_current();
+        const char *tname = kthread_name(ts);
+        void *thandle = kthread_raw_handle(ts);
         strncpy(rec.thread_name, tname ? tname : "task", sizeof(rec.thread_name) - 1);
         rec.thread_id = (uint32_t)(((uintptr_t)thandle >> 4) & 0xFFFFU);
     }
