@@ -39,11 +39,13 @@ int cherry_printk_run_tests(void)
     bool p1 = true;
 
     /* 2. Multi-core concurrent stress test */
-    struct semaphore done;
+    static struct semaphore done;
     sema_init(&done, 0);
 
-    struct printk_worker_arg arg0 = { .core = 0, .count = 10, .done = &done };
-    struct printk_worker_arg arg1 = { .core = 1, .count = 10, .done = &done };
+    static struct printk_worker_arg arg0;
+    static struct printk_worker_arg arg1;
+    arg0.core = 0; arg0.count = 10; arg0.done = &done;
+    arg1.core = 1; arg1.count = 10; arg1.done = &done;
 
     struct task_struct *t0 = kthread_run(printk_test_worker, &arg0, "pr_w0");
     struct task_struct *t1 = kthread_run(printk_test_worker, &arg1, "pr_w1");
